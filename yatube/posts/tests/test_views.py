@@ -3,6 +3,7 @@ import tempfile
 
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.cache import cache
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -167,7 +168,6 @@ class PaginatorViewsTest(TestCase):
         # Создаем неавторизованный клиент
         self.guest_client = Client()
         # Создаем авторизованый клиент
-        self.user = User.objects.create_user(username='HasNoName')
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
 
@@ -180,3 +180,37 @@ class PaginatorViewsTest(TestCase):
         # Проверка: на второй странице должно быть три поста.
         response = self.client.get(reverse('posts:index') + '?page=2')
         self.assertEqual(len(response.context['page_obj']), 3)
+
+
+class CacheTest(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        # Создадим запись в БД для проверки доступности адреса
+        cls.user = User.objects.create_user(username='auth3')
+
+    def setUp(self):
+        cache.clear()
+        self.authorized_user = Client()
+        self.authorized_user.force_login(self.user)
+
+    def test_cache(self):
+        """Тест кэширования главной страницы."""
+        user = CacheTest.user
+        post = Post.objects.create(
+            text='test_text',
+            author=user
+        )
+        index_url = reverse('posts:index')
+        response = self.authorized_user.get(index_url)
+        posts = response.context['page_obj'].object_list
+        posts_count = len(posts)
+        self.assertIn(post, posts)
+        post.delete()
+        response = self.authorized_user.get(index_url)
+        posts = response.context['page_obj'].object_list
+        self.assertEqual(len(posts), posts_count - 1)
+        cache.clear()
+        response = self.authorized_user.get(index_url)
+        posts = response.context['page_obj'].object_list
+        self.assertEqual(len(posts), posts_count - 1)
