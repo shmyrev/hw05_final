@@ -128,7 +128,9 @@ class PostCreateFormTests(TestCase):
         )
         # Проверяем, сработал ли редирект
         self.assertRedirects(
-            response, reverse('posts:post_detail', kwargs={'post_id': self.post.id})
+            response, reverse(
+                'posts:post_detail', kwargs={'post_id': self.post.id}
+            )
         )
         # Проверяем, увеличилось ли число комментов
         self.assertEqual(Comment.objects.count(), comments_count + 1)
@@ -140,6 +142,7 @@ class PostCreateFormTests(TestCase):
         )
         # Проверяем, последняя ли зпись
         self.assertTrue(
-            Comment.objects.filter(pub_date__isnull=False,
-                                text=form_data['text']).latest('pub_date')
+            Comment.objects.filter(
+                pub_date__isnull=False,
+                text=form_data['text']).latest('pub_date')
         )

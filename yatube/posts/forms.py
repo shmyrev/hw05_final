@@ -18,6 +18,7 @@ class PostForm(forms.ModelForm):
             'image': 'Добавить картинку'
         }
 
+
 class CommentForm(forms.ModelForm):
     class Meta:
         model = Comment
