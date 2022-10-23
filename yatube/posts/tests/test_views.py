@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
-from ..models import Post, Group
+from ..models import Post, Group, Follow
 
 User = get_user_model()
 
@@ -191,8 +191,8 @@ class CacheTest(TestCase):
 
     def setUp(self):
         cache.clear()
-        self.authorized_user = Client()
-        self.authorized_user.force_login(self.user)
+        self.authorized_client = Client()
+        self.authorized_client.force_login(self.user)
 
     def test_cache(self):
         """Тест кэширования главной страницы."""
@@ -202,15 +202,95 @@ class CacheTest(TestCase):
             author=user
         )
         index_url = reverse('posts:index')
-        response = self.authorized_user.get(index_url)
+        response = self.authorized_client.get(index_url)
         posts = response.context['page_obj'].object_list
         posts_count = len(posts)
         self.assertIn(post, posts)
         post.delete()
-        response = self.authorized_user.get(index_url)
+        response = self.authorized_client.get(index_url)
         posts = response.context['page_obj'].object_list
         self.assertEqual(len(posts), posts_count - 1)
         cache.clear()
-        response = self.authorized_user.get(index_url)
+        response = self.authorized_client.get(index_url)
         posts = response.context['page_obj'].object_list
         self.assertEqual(len(posts), posts_count - 1)
+
+
+class FollowTest(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user = User.objects.create_user(username='auth4')
+        cls.user_follower = User.objects.create_user(username='auth_follower')
+
+        cls.post_follower = Post.objects.create(
+            text='test-text-follower',
+            author=cls.user_follower
+        )
+
+    def setUp(self):
+        self.authorized_client = Client()
+        self.authorized_client.force_login(self.user)
+
+        self.follower_authorized_client = Client()
+        self.follower_authorized_client.force_login(self.user_follower)
+
+    def test_follow(self):
+        """
+            Авторизованный пользователь может подписываться на других
+            пользователей и удалять их из подписок.
+        """
+        user = FollowTest.user
+        follower_user = FollowTest.user_follower
+        profile_follow_url = reverse(
+            'posts:profile_follow',
+            kwargs={'username': follower_user.username}
+        )
+        profile_unfollow_url = reverse(
+            'posts:profile_unfollow',
+            kwargs={'username': follower_user.username}
+        )
+        follower_user_profile_url = reverse(
+            'posts:profile',
+            kwargs={'username': follower_user.username}
+        )
+        response = self.authorized_client.get(profile_follow_url)
+        self.assertRedirects(response, follower_user_profile_url)
+        self.assertTrue(
+            Follow.objects.filter(
+                user=user,
+                author=follower_user
+            ).exists()
+        )
+        response = self.authorized_client.get(profile_unfollow_url)
+        self.assertRedirects(response, follower_user_profile_url)
+        self.assertFalse(
+            Follow.objects.filter(
+                user=user,
+                author=follower_user
+            ).exists()
+        )
+
+    def test_post_list_on_subscriber(self):
+        """
+            Новая запись пользователя появляется в ленте тех, кто на него
+            подписан и не появляется в ленте тех, кто не подписан.
+        """
+        follower_user = FollowTest.user_follower
+        follower_post = FollowTest.post_follower
+
+        follow_index_url = reverse('posts:follow_index')
+
+        profile_follow_url = reverse(
+            'posts:profile_follow',
+            kwargs={'username': follower_user.username}
+        )
+        self.authorized_client.get(profile_follow_url)
+        response = self.authorized_client.get(follow_index_url)
+        self.assertIn(
+            follower_post, response.context.get('page_obj').object_list
+        )
+        response = self.follower_authorized_client.get(follow_index_url)
+        self.assertNotIn(
+            follower_post, response.context.get('page_obj').object_list
+        )
