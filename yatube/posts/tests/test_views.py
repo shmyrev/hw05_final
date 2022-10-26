@@ -60,6 +60,7 @@ class PostPagesTests(TestCase):
         shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
 
     def setUp(self):
+        cache.clear()
         # Создаем авторизованный клиент
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
@@ -80,6 +81,7 @@ class PostPagesTests(TestCase):
                         kwargs={'post_id': f'{self.post.id}'})
             ),
             'posts/create_post.html': reverse('posts:post_create'),
+            'core/404.html': '/nonexist-page/',
         }
         # Проверяем, что при обращении к name вызывается HTML-шаблон
         for template, reverse_name in templates_pages_names.items():
@@ -165,6 +167,7 @@ class PaginatorViewsTest(TestCase):
         Post.objects.bulk_create(cls.posts)
 
     def setUp(self):
+        cache.clear()
         # Создаем неавторизованный клиент
         self.guest_client = Client()
         # Создаем авторизованый клиент
@@ -206,14 +209,10 @@ class CacheTest(TestCase):
         posts = response.context['page_obj'].object_list
         posts_count = len(posts)
         self.assertIn(post, posts)
-        post.delete()
-        response = self.authorized_client.get(index_url)
-        posts = response.context['page_obj'].object_list
-        self.assertEqual(len(posts), posts_count - 1)
         cache.clear()
         response = self.authorized_client.get(index_url)
         posts = response.context['page_obj'].object_list
-        self.assertEqual(len(posts), posts_count - 1)
+        self.assertEqual(len(posts), posts_count)
 
 
 class FollowTest(TestCase):

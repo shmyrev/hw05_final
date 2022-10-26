@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q, F
 from django.contrib.auth import get_user_model
 
 from core.models import PubdateModel
@@ -68,13 +69,24 @@ class Comment(PubdateModel):
 
 
 class Follow(models.Model):
+    # пользователь, который подписывается
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name='follower'
     )
+    # пользователь, на которого подписывются
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name='following'
     )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(check=~Q(user=F('author')), name='user'),
+            models.UniqueConstraint(
+                fields=['user', 'author'],
+                name="unique_following"
+            )
+        ]

@@ -1,6 +1,8 @@
+from http import HTTPStatus
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase, Client
-from http import HTTPStatus
+
 
 from ..models import Group, Post
 
@@ -58,18 +60,3 @@ class StaticUrlTests(TestCase):
             with self.subTest(url=url):
                 response = self.authorized_client.get(url)
                 self.assertEqual(response.status_code, status_code)
-
-    # Шаблоны по адресам
-    def test_urls_uses_correct_template(self):
-        """URL-адрес использует соответствующий шаблон."""
-        template_url_name = {
-            'posts/index.html': '/',
-            'posts/group_list.html': '/group/test-slug/',
-            'posts/profile.html': '/profile/auth/',
-            'posts/post_detail.html': f'/posts/{ self.post.id }/',
-            'posts/create_post.html': '/create/',
-        }
-        for template, address in template_url_name.items():
-            with self.subTest(address=address):
-                response = self.authorized_client.get(address)
-                self.assertTemplateUsed(response, template)

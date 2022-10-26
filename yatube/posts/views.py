@@ -1,8 +1,9 @@
+from django.views.decorators.cache import cache_page
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.core.cache import cache
+# from django.core.cache import cache
 
 from .models import Post, Group, Follow
 from .forms import PostForm, CommentForm
@@ -20,13 +21,11 @@ def paginator_view(request, posts, number):
     return page_obj
 
 
+@cache_page(20, key_prefix="index_page")
 def index(request):
     template = 'posts/index.html'
-    page_cache = cache.get('index_page')
-    if not page_cache:
-        posts = Post.objects.all()
-        page_obj = paginator_view(request, posts, POST_NUMBERS)
-        cache.set('index_page', page_cache, timeout=20)
+    posts = Post.objects.all()
+    page_obj = paginator_view(request, posts, POST_NUMBERS)
     return render(request, template, {'page_obj': page_obj})
 
 

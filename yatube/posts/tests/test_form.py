@@ -1,6 +1,8 @@
 import shutil
 import tempfile
 
+from http import HTTPStatus
+
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth import get_user_model
@@ -94,10 +96,8 @@ class PostCreateFormTests(TestCase):
             ).exists()
         )
         # Проверяем, последняя ли зпись
-        self.assertTrue(
-            Post.objects.filter(pub_date__isnull=False,
-                                text=form_data['text']).latest('pub_date')
-        )
+        post = Post.objects.filter(text=form_data['text']).latest('pub_date')
+        self.assertEqual(post, Post.objects.get(text=form_data['text']))
 
     def test_authorized_edit_post(self):
         """редактирование поста"""
@@ -112,7 +112,7 @@ class PostCreateFormTests(TestCase):
             follow=True,
         )
         post = Post.objects.get(id=self.group.id)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, HTTPStatus.OK)
         self.assertEqual(post.text, form_data['text'])
 
     def test_authorized_create_comment(self):
